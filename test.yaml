@@ -1,4 +1,0 @@
-hosts:
-- Host: example.com
-  HostName: example.com
-  User: admin

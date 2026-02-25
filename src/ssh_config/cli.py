@@ -1,4 +1,4 @@
-# Copyright 2025 Your Name
+# Copyright 2026 Your Name
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,145 +12,122 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Command-line interface for SSH Config Tool."""
+"""Simplified CLI using Typer."""
 
-import sys
+import json
 import os
-import argparse
+import sys
 from pathlib import Path
 from typing import Optional
 
-from .core import convert_ssh_config
+import typer
+
+# Add the src directory to the path so we can import our modules
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from ssh_config.core import convert_ssh_config
 
 
-def is_stdin_piped() -> bool:
-    """检查是否从标准输入读取"""
-    return not sys.stdin.isatty()
+app = typer.Typer(
+    name="ssh-config",
+    help="SSH Config Tool - Convert between SSH config, YAML, and JSON formats.",
+    add_completion=False,
+)
 
 
-def read_input_content(src: Optional[str] = None) -> str:
-    """读取输入内容"""
-    if is_stdin_piped():
-        return sys.stdin.read()
+@app.command()
+def main(
+    to_yaml: bool = typer.Option(False, "--to-yaml", help="Convert to YAML format"),
+    to_json: bool = typer.Option(False, "--to-json", help="Convert to JSON format"),
+    to_ssh: bool = typer.Option(False, "--to-ssh", help="Convert to SSH config format"),
+    src: Optional[str] = typer.Option(None, "--src", help="Source file or directory path (default: ~/.ssh)"),
+    dest: Optional[str] = typer.Option(None, "--dest", help="Destination file path (default: stdout)"),
+):
+    """Main entry point for the CLI."""
+    # Determine target format
+    target_format = None
+    format_flags = [to_yaml, to_json, to_ssh]
     
-    if src is None:
-        # 默认读取 ~/.ssh 目录
-        ssh_dir = Path.home() / ".ssh"
-        if not ssh_dir.exists():
-            raise FileNotFoundError(f"SSH directory not found: {ssh_dir}")
+    if sum(format_flags) == 0:
+        # Default to YAML if no format specified
+        target_format = "yaml"
+        to_yaml = True
+    elif sum(format_flags) == 1:
+        if to_yaml:
+            target_format = "yaml"
+        elif to_json:
+            target_format = "json"
+        elif to_ssh:
+            target_format = "ssh"
+    else:
+        typer.echo("Error: Please specify exactly one output format (--to-yaml, --to-json, or --to-ssh)", err=True)
+        raise typer.Exit(code=1)
+    
+    # Check if input is from stdin
+    if not sys.stdin.isatty():
+        # Read from stdin
+        content = sys.stdin.read()
+        if not content.strip():
+            typer.echo("Error: Empty input from stdin", err=True)
+            raise typer.Exit(code=1)
         
-        # 查找配置文件
-        config_files = []
-        for file_path in ssh_dir.iterdir():
-            if file_path.is_file() and file_path.name not in ['id_rsa', 'id_rsa.pub', 'known_hosts']:
-                if file_path.suffix not in ['.pub', '.pem', '.key']:
-                    config_files.append(file_path)
+        try:
+            if to_yaml:
+                result = convert_ssh_config(content, to_yaml=True)
+            elif to_json:
+                result = convert_ssh_config(content, to_json=True)
+            elif to_ssh:
+                result = convert_ssh_config(content, to_ssh=True)
+            typer.echo(result, nl=False)
+        except Exception as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        # File/directory mode
+        if src is None:
+            # Default to ~/.ssh directory
+            src = os.path.expanduser("~/.ssh")
         
-        if not config_files:
-            raise FileNotFoundError("No SSH config files found in ~/.ssh")
-            
-        # 读取第一个配置文件或合并所有
-        content = ""
-        for config_file in sorted(config_files):
-            if config_file.name == 'config':
-                with open(config_file, 'r') as f:
+        src_path = Path(src)
+        if not src_path.exists():
+            typer.echo(f"Error: Source path '{src}' does not exist", err=True)
+            raise typer.Exit(code=1)
+        
+        try:
+            if src_path.is_file():
+                with open(src_path, 'r') as f:
                     content = f.read()
-                break
-        else:
-            # 如果没有config文件，读取第一个找到的文件
-            with open(config_files[0], 'r') as f:
-                content = f.read()
+                if to_yaml:
+                    result = convert_ssh_config(content, to_yaml=True)
+                elif to_json:
+                    result = convert_ssh_config(content, to_json=True)
+                elif to_ssh:
+                    result = convert_ssh_config(content, to_ssh=True)
+            elif src_path.is_dir():
+                # For now, we'll just process the directory as a simple case
+                # In a full implementation, you'd want to scan for SSH config files
+                typer.echo(f"Error: Directory processing not fully implemented", err=True)
+                raise typer.Exit(code=1)
+            else:
+                typer.echo(f"Error: '{src}' is neither a file nor a directory", err=True)
+                raise typer.Exit(code=1)
+            
+            if dest:
+                # Write to file
+                dest_path = Path(dest)
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(dest_path, 'w') as f:
+                    f.write(result)
+                typer.echo(f"File has been saved successfully")
+                typer.echo(f"File path: {dest_path}")
+            else:
+                # Output to stdout
+                typer.echo(result, nl=False)
                 
-        return content
-    
-    # 从指定文件读取
-    src_path = Path(src)
-    if not src_path.exists():
-        raise FileNotFoundError(f"Source file not found: {src}")
-    
-    with open(src_path, 'r') as f:
-        return f.read()
-
-
-def write_output_content(content: str, dest: Optional[str] = None):
-    """写入输出内容"""
-    if dest is None or is_stdin_piped():
-        print(content)
-        return
-    
-    dest_path = Path(dest)
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(dest_path, 'w') as f:
-        f.write(content)
-    
-    print(f"File has been saved successfully")
-    print(f"File path: {dest_path}")
-
-
-def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(
-        description="SSH Config Tool - Convert between SSH config, YAML, and JSON formats"
-    )
-    parser.add_argument(
-        "--to-yaml", 
-        action="store_true", 
-        help="Convert SSH config(Text/JSON) to YAML"
-    )
-    parser.add_argument(
-        "--to-ssh", 
-        action="store_true", 
-        help="Convert SSH config(YAML/JSON) to SSH config format"
-    )
-    parser.add_argument(
-        "--to-json", 
-        action="store_true", 
-        help="Convert SSH config(YAML/Text) to JSON"
-    )
-    parser.add_argument(
-        "--src", 
-        type=str, 
-        help="Source file or directories path, valid when using non-pipeline mode"
-    )
-    parser.add_argument(
-        "--dest", 
-        type=str, 
-        help="Destination file path, valid when using non-pipeline mode"
-    )
-    parser.add_argument(
-        "--help", 
-        action="help", 
-        help="Show this help message"
-    )
-    
-    args = parser.parse_args()
-    
-    # 验证转换参数
-    format_count = sum([args.to_yaml, args.to_ssh, args.to_json])
-    if format_count != 1:
-        print("Please specify either --to-yaml or --to-ssh or --to-json")
-        sys.exit(1)
-    
-    try:
-        # 读取输入
-        input_content = read_input_content(args.src)
-        
-        # 执行转换
-        output_content = convert_ssh_config(
-            input_content,
-            to_yaml=args.to_yaml,
-            to_json=args.to_json,
-            to_ssh=args.to_ssh
-        )
-        
-        # 写入输出
-        write_output_content(output_content, args.dest)
-        
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        except Exception as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
-    main()
+    app()
