@@ -1,8 +1,25 @@
+# Copyright 2026 Your Name
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import json
 import yaml
 from pathlib import Path
 from typing import Union, Dict, List, Any, Optional
+
+# 定义主机配置的类型
+HostConfig = Dict[str, Union[str, List[str]]]
 
 class SSHConfigConverter:
     """SSH配置文件转换器，支持SSH Config、YAML、JSON三种格式之间的相互转换"""
@@ -37,9 +54,12 @@ class SSHConfigConverter:
     @staticmethod
     def ssh_to_dict(content: str) -> Dict[str, Any]:
         """将SSH Config格式转换为字典"""
-        hosts = []
-        current_host = None
+        hosts: List[HostConfig] = []
+        current_host: Optional[HostConfig] = None
         lines = content.split('\n')
+        
+        # 多值选项列表
+        multi_value_keys = {'identityfile', 'localforward', 'remoteforward'}
         
         for line in lines:
             line = line.strip()
@@ -53,7 +73,7 @@ class SSHConfigConverter:
             key, value = parts[0].lower(), parts[1]
             
             if key == 'host':
-                if current_host:
+                if current_host is not None:
                     hosts.append(current_host)
                 current_host = {'Host': value}
             else:
@@ -67,14 +87,17 @@ class SSHConfigConverter:
                         current_host = hosts[0]
                 
                 # 处理多值选项（如IdentityFile）
-                if key in ['identityfile', 'localforward', 'remoteforward']:
-                    if key.capitalize() not in current_host:
-                        current_host[key.capitalize()] = []
-                    current_host[key.capitalize()].append(value)
+                capitalized_key = key.capitalize()
+                if key in multi_value_keys:
+                    if capitalized_key not in current_host:
+                        current_host[capitalized_key] = []
+                    # 确保值是列表类型
+                    current_host[capitalized_key] = current_host[capitalized_key]  # type: ignore
+                    current_host[capitalized_key].append(value)  # type: ignore
                 else:
-                    current_host[key.capitalize()] = value
+                    current_host[capitalized_key] = value
         
-        if current_host:
+        if current_host is not None:
             hosts.append(current_host)
             
         return {"hosts": hosts}

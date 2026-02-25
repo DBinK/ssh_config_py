@@ -56,10 +56,14 @@ class SSHConfigParser:
                     
                     # Handle multi-value keys (like IdentityFile)
                     if key in current_host:
-                        if isinstance(current_host[key], list):
-                            current_host[key].append(value)
+                        existing_value = current_host[key]
+                        if isinstance(existing_value, list):
+                            # Already a list, append the new value
+                            existing_value.append(value)
+                            current_host[key] = existing_value
                         else:
-                            current_host[key] = [current_host[key], value]
+                            # Convert single value to list
+                            current_host[key] = [existing_value, value]
                     else:
                         current_host[key] = value
         
@@ -139,7 +143,7 @@ def _looks_like_ssh_config(content: str) -> bool:
     return False
 
 
-def convert_format(content: str, target_format: str, source_format: str = None) -> str:
+def convert_format(content: str, target_format: str, source_format: Union[str, None] = None) -> str:
     """Convert content between formats.
     
     Args:
