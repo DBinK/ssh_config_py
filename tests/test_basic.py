@@ -16,7 +16,8 @@ def test_ssh_to_yaml():
     
     converter = SSHConfigConverter()
     yaml_content = converter.convert(ssh_content, "yaml")
-    
+    print(yaml_content)
+
     # 验证YAML内容包含必要的字段
     assert "hosts:" in yaml_content
     assert "example.com" in yaml_content
@@ -33,6 +34,7 @@ def test_yaml_to_ssh():
     
     converter = SSHConfigConverter()
     ssh_content = converter.convert(yaml_content, "ssh")
+    print(ssh_content)
     
     # 验证SSH内容
     assert "Host example.com" in ssh_content
