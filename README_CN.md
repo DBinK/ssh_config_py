@@ -112,7 +112,15 @@ uv build
 
 ## 许可证
 
-Apache License 2.0 - 与原始 Go 项目相同。
+本项目采用 **Apache License, Version 2.0**（"许可证"）授权。您不得使用本文件，除非符合许可证的规定。您可以从以下地址获取许可证副本：
+
+```
+http://www.apache.org/licenses/LICENSE-2.0
+```
+
+除非适用法律要求或书面同意，否则根据许可证分发的软件是基于"按原样"的基础分发的，不附带任何明示或暗示的担保或条件。有关许可证下的具体权限和限制，请参阅许可证。
+
+原始的 Go 实现由 [soulteary](https://github.com/soulteary) 开发，同样采用 Apache-2.0 许可证，此 Python 重实现保持了相同的许可条款。
 
 ## 致谢
 
