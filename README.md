@@ -2,6 +2,10 @@
 
 A Python implementation of the SSH Config Tool that provides both a **SDK library** and **CLI tool** for managing SSH configuration files.
 
+## Inspiration
+
+This project is inspired by and reimplemented from the original [Go version](https://github.com/soulteary/ssh-config) by [Su Yang (soulteary)](https://github.com/soulteary). The Python version maintains the same functionality while providing a more accessible codebase for Python developers and enabling easy integration as an SDK library.
+
 ## Features
 
 - ✅ Converts between SSH config, YAML, and JSON formats
@@ -109,3 +113,9 @@ uv build
 ## License
 
 Apache License 2.0 - Same as the original Go project.
+
+## Credits
+
+- Original Go implementation: [soulteary/ssh-config](https://github.com/soulteary/ssh-config)
+- OpenSSH documentation: https://man.openbsd.org/ssh_config
+- Inspiration for configuration file definition: https://github.com/bencromwell/sshush
